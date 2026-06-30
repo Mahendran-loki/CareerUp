@@ -1,0 +1,15 @@
+{
+  "name": "skill-gap-analyzer-workspace",
+  "version": "1.0.0",
+  "description": "Root workspace workspace runner for CareerUp Skill Gap Analyzer",
+  "scripts": {
+    "install:all": "npm install --prefix client && npm install --prefix server",
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "npm run build --prefix client"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
