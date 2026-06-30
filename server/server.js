@@ -392,6 +392,57 @@ function runSimulator(resumeText, jdText) {
 
   atsScore = Math.max(45, Math.min(100, atsScore));
 
+  // Dynamic Job Role Recommendations in Simulator
+  const recommendedRoles = [];
+  const rolesRegistry = [
+    {
+      role: 'Frontend Developer',
+      skills: ['react', 'vue', 'angular', 'javascript', 'css', 'html', 'tailwind', 'bootstrap'],
+      reason: 'Your background matches critical frontend technologies like React and layout design.'
+    },
+    {
+      role: 'Backend Engineer',
+      skills: ['node', 'express', 'django', 'flask', 'springboot', 'java', 'python', 'sql', 'mongodb', 'postgresql'],
+      reason: 'Your experience aligns with server configurations, databases, and API development paradigms.'
+    },
+    {
+      role: 'Full Stack Developer',
+      skills: ['react', 'node', 'express', 'javascript', 'typescript', 'mongodb', 'sql'],
+      reason: 'You demonstrate core familiarity with both client-side presentation layers and server database integrations.'
+    },
+    {
+      role: 'Software Engineer',
+      skills: ['java', 'python', 'c++', 'c#', 'data structures', 'algorithms', 'git'],
+      reason: 'Your credentials show general software engineering principles, code versioning, and foundational systems.'
+    }
+  ];
+
+  rolesRegistry.forEach(item => {
+    const matches = item.skills.filter(s => {
+      return matchedSkills.some(ms => ms.toLowerCase().includes(s));
+    });
+    
+    let matchPct = 40;
+    if (matches.length > 0) {
+      matchPct = Math.min(95, 40 + (matches.length * 20));
+    } else {
+      const targetLower = jdText.toLowerCase();
+      if (targetLower.includes(item.role.toLowerCase().split(' ')[0])) {
+        matchPct = 55;
+      }
+    }
+
+    if (matchPct >= 50 || recommendedRoles.length < 2) {
+      recommendedRoles.push({
+        role: item.role,
+        matchPercentage: matchPct,
+        reason: item.reason
+      });
+    }
+  });
+
+  recommendedRoles.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
   return {
     matchScore,
     matchedSkills,
@@ -400,6 +451,7 @@ function runSimulator(resumeText, jdText) {
     roadmap,
     projectRecommendations,
     resumeImprovements,
+    recommendedRoles,
     atsScore,
     atsSuggestions
   };
@@ -561,6 +613,13 @@ app.post('/api/analyze', upload.single('resumeFile'), async (req, res) => {
               "original": "[Specify the actual weak/non-quantified sentence fragment from the resume]",
               "suggested": "[Provide a professional, quantified alternative using action verbs]",
               "reason": "[Explain why this improvement increases ATS readability and recruiter appeal]"
+            }
+          ],
+          "recommendedRoles": [
+            {
+              "role": "[Job Role name, e.g. Frontend Engineer]",
+              "matchPercentage": <number, score between 0 and 100 representing how well the current resume fits this role>,
+              "reason": "[1-2 sentences explaining why this role fits their current skills]"
             }
           ],
           "atsScore": <number, overall ATS layout and wording score between 0 and 100>,

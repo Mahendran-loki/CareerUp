@@ -52,6 +52,7 @@ const AssessmentSchema = new mongoose.Schema({
   roadmap: mongoose.Schema.Types.Mixed, // Weeks structure
   projectRecommendations: mongoose.Schema.Types.Mixed, // Projects details
   resumeImprovements: mongoose.Schema.Types.Mixed, // Wording updates
+  recommendedRoles: mongoose.Schema.Types.Mixed, // Job role recommendations
   atsScore: Number,
   atsSuggestions: [String]
 }, { timestamps: true });

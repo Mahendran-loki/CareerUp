@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, FileText, CheckCircle2, AlertCircle, RefreshCw, ArrowRight, Clipboard, Award } from 'lucide-react';
+
+const CAREER_TIPS = [
+  "Tailor your resume for every job application. Focus on action-oriented phrases and quantify your impacts (e.g., 'saved 10 hours/week').",
+  "Contribute to open source projects or build public portfolios. Recruiters value active GitHub profiles and real codebase contributions.",
+  "Develop strong communication and problem-solving soft skills. Technical skills get you the interview, but soft skills land you the offer.",
+  "Keep your LinkedIn profile active and updated. Many recruiters search and message candidates directly based on keywords.",
+  "Structure your project descriptions using the STAR method: Situation, Task, Action, and Result.",
+  "Dedicate at least 30 minutes a day to continuous learning. Tech stacks evolve quickly; consistency is key to staying relevant."
+];
 
 export default function Analyzer({ currentAnalysis, setCurrentAnalysis, setHistory, setActiveTab, apiBaseUrl, clientApiKey }) {
   const [file, setFile] = useState(null);
@@ -8,6 +17,25 @@ export default function Analyzer({ currentAnalysis, setCurrentAnalysis, setHisto
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
+  const [isFading, setIsFading] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    
+    // Choose a random starting tip to make it fresh each load
+    setCurrentTipIndex(Math.floor(Math.random() * CAREER_TIPS.length));
+
+    const interval = setInterval(() => {
+      setIsFading(true);
+      setTimeout(() => {
+        setCurrentTipIndex((prev) => (prev + 1) % CAREER_TIPS.length);
+        setIsFading(false);
+      }, 300); // Wait for transition fade-out to end before swapping text
+    }, 4500); // Swap tip every 4.5 seconds
+
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   // File drop handlers
   const handleDragOver = (e) => {
@@ -110,12 +138,20 @@ export default function Analyzer({ currentAnalysis, setCurrentAnalysis, setHisto
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center p-12 rounded-2xl glass-panel glow-violet min-h-[400px]">
-          <RefreshCw className="animate-spin text-violet-400 mb-4" size={48} />
-          <h3 className="text-lg font-bold text-zinc-100">Analyzing Resume & Job Requirements...</h3>
-          <p className="text-sm text-zinc-400 text-center max-w-md mt-2">
-            Extracting skills, comparing keywords, calculating ATS criteria, and formulating your learning roadmap. This can take up to 10 seconds.
-          </p>
+        <div className="flex flex-col items-center justify-center p-12 rounded-2xl glass-panel glow-violet min-h-[350px]">
+          <RefreshCw className="animate-spin text-violet-400 mb-5" size={44} />
+          <h3 className="text-lg font-bold text-zinc-100 mb-2">Analyzing Resume & Job Requirements...</h3>
+          
+          <div className="w-full max-w-md h-[1px] bg-zinc-800/80 my-4" />
+          
+          <div className={`flex flex-col items-center min-h-[80px] transition-opacity duration-300 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
+            <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-widest bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/10 mb-2">
+              Career Growth Tip
+            </span>
+            <p className="text-xs text-zinc-400 text-center max-w-sm leading-relaxed">
+              {CAREER_TIPS[currentTipIndex]}
+            </p>
+          </div>
         </div>
       ) : currentAnalysis ? (
         /* Results Section */
@@ -233,6 +269,58 @@ export default function Analyzer({ currentAnalysis, setCurrentAnalysis, setHisto
               </div>
             </div>
           </div>
+
+          {/* Recommended Job Roles Card */}
+          {currentAnalysis.recommendedRoles && currentAnalysis.recommendedRoles.length > 0 && (
+            <div className="p-6 rounded-2xl glass-panel">
+              <h3 className="text-lg font-bold text-zinc-100 mb-4 flex items-center gap-2">
+                <Award className="text-violet-400" size={20} />
+                Recommended Job Roles (Based on your Resume)
+              </h3>
+              <p className="text-xs text-zinc-400 mb-6">
+                These roles match your existing skill profile most closely. Targeting these adjacent tracks can lead to a higher application response rate.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentAnalysis.recommendedRoles.map((item, index) => (
+                  <div key={index} className="p-4 rounded-xl bg-slate-900/20 border border-zinc-800/80 flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-zinc-200 text-sm">{item.role}</h4>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          item.matchPercentage >= 80 
+                            ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20 glow-violet' 
+                            : item.matchPercentage >= 65 
+                              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 glow-cyan' 
+                              : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
+                        }`}>
+                          {item.matchPercentage}% Match
+                        </span>
+                      </div>
+                      
+                      {/* Progress Bar Track */}
+                      <div className="w-full bg-zinc-800/80 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            item.matchPercentage >= 80 
+                              ? 'bg-violet-500' 
+                              : item.matchPercentage >= 65 
+                                ? 'bg-cyan-500' 
+                                : 'bg-zinc-500'
+                          }`}
+                          style={{ width: `${item.matchPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-zinc-400 leading-relaxed pt-1">
+                      {item.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quick Road to Improvement CTAs */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

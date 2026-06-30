@@ -149,6 +149,7 @@ export default function App() {
           <ResumeOptimizer 
             currentAnalysis={currentAnalysis} 
             history={history} 
+            profile={profile}
           />
         );
       case 'history':

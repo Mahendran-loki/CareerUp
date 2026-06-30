@@ -1,7 +1,7 @@
-import React from 'react';
-import { Sparkles, ArrowRight, CheckCircle2, AlertTriangle, FileText, Check } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, ArrowRight, CheckCircle2, AlertTriangle, FileText, Check, ChevronDown } from 'lucide-react';
 
-export default function ResumeOptimizer({ currentAnalysis, history }) {
+export default function ResumeOptimizer({ currentAnalysis, history, profile }) {
   const latest = currentAnalysis || history[0];
 
   if (!latest) {
@@ -19,6 +19,172 @@ export default function ResumeOptimizer({ currentAnalysis, history }) {
   const improvements = latest.resumeImprovements || [];
   const suggestions = latest.atsSuggestions || [];
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Helper to escape special regex chars
+  const escapeRegExp = (str) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+
+  // Replaces weak bullets with their AI optimized suggestions
+  const getOptimizedResumeText = () => {
+    if (!latest || !latest.resumeText) return '';
+    let optimized = latest.resumeText;
+    
+    improvements.forEach(item => {
+      if (!item.original || !item.suggested) return;
+      
+      let cleanOriginal = item.original.trim();
+      if (cleanOriginal.startsWith('"') && cleanOriginal.endsWith('"')) {
+        cleanOriginal = cleanOriginal.slice(1, -1).trim();
+      }
+      if (cleanOriginal.startsWith('"...') && cleanOriginal.endsWith('..."')) {
+        cleanOriginal = cleanOriginal.slice(4, -4).trim();
+      }
+      
+      if (optimized.includes(cleanOriginal)) {
+        optimized = optimized.replace(cleanOriginal, item.suggested);
+      } else {
+        const lines = optimized.split('\n');
+        const updatedLines = lines.map(line => {
+          if (line.toLowerCase().includes(cleanOriginal.toLowerCase())) {
+            return line.replace(new RegExp(escapeRegExp(cleanOriginal), 'gi'), item.suggested);
+          }
+          return line;
+        });
+        optimized = updatedLines.join('\n');
+      }
+    });
+    
+    return optimized;
+  };
+
+  const handleDownload = (format) => {
+    const optimizedText = getOptimizedResumeText();
+    const candidateName = profile?.name || 'Candidate';
+    const docTitle = `${candidateName}_ATS_Optimized_Resume`;
+
+    // Process text into a simple clean HTML markup block
+    const lines = optimizedText.split('\n');
+    const bodyHtml = lines.map(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return '<br/>';
+      
+      if (/^(experience|projects|education|skills|summary|work history|profile)$/i.test(trimmed)) {
+        return `<h2>${trimmed.toUpperCase()}</h2>`;
+      }
+      
+      if (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.startsWith('*')) {
+        return `<li>${trimmed.substring(1).trim()}</li>`;
+      }
+      
+      return `<p>${trimmed}</p>`;
+    }).join('\n');
+
+    if (format === 'doc') {
+      const html = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><title>${docTitle}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; padding: 40px; color: #334155; }
+          h1 { text-align: center; color: #0f172a; font-size: 22px; margin-bottom: 20px; font-weight: bold; }
+          h2 { color: #4f46e5; border-bottom: 2.5px solid #e2e8f0; font-size: 13px; margin-top: 25px; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+          p { margin: 8px 0; font-size: 11pt; }
+          li { margin: 5px 0; font-size: 11pt; list-style-type: square; }
+        </style>
+        </head>
+        <body>
+          <h1>${candidateName.toUpperCase()}</h1>
+          ${bodyHtml}
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${docTitle.replace(/\s+/g, '_')}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else if (format === 'pdf') {
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>${docTitle}</title>
+          <style>
+            @page { size: A4; margin: 20mm; }
+            body { 
+              font-family: Arial, sans-serif; 
+              line-height: 1.5; 
+              color: #1e293b; 
+              padding: 0;
+              margin: 0;
+            }
+            h1 { 
+              text-align: center; 
+              color: #0f172a; 
+              font-size: 24px; 
+              margin-bottom: 2px; 
+              font-weight: bold;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            h2 { 
+              color: #4f46e5; 
+              border-bottom: 1.5px solid #e2e8f0; 
+              font-size: 12px; 
+              margin-top: 20px; 
+              margin-bottom: 8px;
+              padding-bottom: 4px; 
+              text-transform: uppercase; 
+              letter-spacing: 1px; 
+              font-weight: bold;
+            }
+            p { 
+              margin: 6px 0; 
+              font-size: 10.5pt; 
+            }
+            li { 
+              margin: 4px 0; 
+              font-size: 10.5pt; 
+            }
+            ul {
+              margin: 4px 0 8px 18px;
+              padding: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${candidateName.toUpperCase()}</h1>
+          ${bodyHtml}
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            }
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -27,6 +193,60 @@ export default function ResumeOptimizer({ currentAnalysis, history }) {
         <p className="text-zinc-400 mt-1">
           Polish your bullet points with action verbs and quantitative metrics, and resolve general ATS issues.
         </p>
+      </div>
+
+      {/* Export Action Card */}
+      <div className="p-6 rounded-2xl glass-panel glow-violet flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+            <Sparkles className="text-violet-400 animate-pulse" size={20} />
+            Export ATS-Optimized Resume
+          </h3>
+          <p className="text-xs text-zinc-400 max-w-xl leading-relaxed">
+            We've compiled a clean A4 resume incorporating all target action-verb rephrases and keywords suggested below. Download in your preferred format.
+          </p>
+        </div>
+        
+        {/* Dropdown Container */}
+        <div className="relative w-full md:w-auto" ref={dropdownRef}>
+          <button 
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white cursor-pointer transition-all hover:scale-[1.02] shadow-lg shadow-violet-600/10"
+          >
+            <Sparkles size={14} />
+            Export Resume
+            <ChevronDown size={14} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {/* Floating Dropdown Menu */}
+          {isDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-full md:w-48 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden transition-all duration-150 transform origin-top-right">
+              <button
+                onClick={() => {
+                  handleDownload('doc');
+                  setIsDropdownOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-zinc-350 hover:text-zinc-100 hover:bg-zinc-800/60 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <FileText size={14} className="text-cyan-400" />
+                Download Word (.doc)
+              </button>
+              
+              <div className="h-[1px] bg-zinc-850/60 mx-2" />
+              
+              <button
+                onClick={() => {
+                  handleDownload('pdf');
+                  setIsDropdownOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-zinc-350 hover:text-zinc-100 hover:bg-zinc-800/60 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Sparkles size={14} className="text-violet-400" />
+                Download PDF
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
